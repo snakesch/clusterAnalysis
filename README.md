@@ -1,5 +1,5 @@
 # ClusterAnalyzer
-ClusterAnalyzer is a python implementation of a novel approach called cluster analysis described [here](). As ClusterAnalyzer is intended for small samples, users are reminded that any results generated from ClusterAnalyzer shall only be interpreted as "suggestive association" and shall, by no means, be interpreted as of approximate power as standard GWAS analysis which employs a much larger cohort.
+ClusterAnalyzer is a python implementation of a novel approach called cluster analysis described [here](). Essentially, ClusterAnalyzer attempts to exclude common variants that are found significant by genotyping error given small sample sizes; it prioritizes a list of clusters/duplets that are less likely to have been observed by genotyping error. As ClusterAnalyzer is intended for small samples, users are reminded that any results generated from ClusterAnalyzer shall only be interpreted as "suggestive association" and shall, by no means, be interpreted as of approximate power as standard GWAS analysis which employs a much larger cohort.
 
 ## Prerequisite
 * Python v3.10 (or newer)
@@ -21,6 +21,7 @@ options:
   --window WINDOW      window size for finding signal aggregates (default: 5000)
   --verbose VERBOSE    level of verbosity (default: INFO)
 ```
+Warning: Users are advised not to change `--window` as it may alter the expected behavior of ClusterAnalyzer.
 
 ## Result
 ClusterAnalyzer extracts clusters, duplets that may possibly be associated with the phenotype of interest. Singletons can be excluded from the report with `--no_singletons`. An example of output report is provided below.
