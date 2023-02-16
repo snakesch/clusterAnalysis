@@ -50,21 +50,18 @@ class Cluster:
         
         return self.variants == other.variants and self.chrom == other.chrom
 
-    @classmethod
     def add_variant(self, *var: Variant):
         for _var in var:
             if _var not in self.variants:
                 self.variants.extend([_var])
         self.update_stat()
 
-    @classmethod
     def update_stat(self):
         self.maxp = max([var.p for var in self.variants])
         self.minp = min([var.p for var in self.variants])
         self.start = min([var.bp for var in self.variants])
         self.end = max([var.bp for var in self.variants])
     
-    @classmethod
     def get_significant_vars(self, p_thresh):
         '''
         Get variants with p < p_thresh
@@ -76,14 +73,12 @@ class Cluster:
         
         return sig_vars
     
-    @classmethod
     def set_ld_reference(self, var: Variant):
         '''
         Set LD reference SNP
         '''
         self.ld_ref = var
     
-    @classmethod
     def add_r2_info(self, ld_df, ld_ref: Variant):
         
         import logging
@@ -95,8 +90,7 @@ class Cluster:
         r2_dict = {k: v for k, v in zip(ld_df["BP_B"], ld_df["R2"])}
         for other_var in self.variants:
             other_var.r2 = r2_dict.get(other_var.bp, -1)
-    
-    @classmethod
+
     def clear_r2(self):
         '''
         Reset r2 info for each member of the cluster
@@ -105,7 +99,6 @@ class Cluster:
         for var in self.variants:
             var.r2 = -1
 
-    @classmethod
     def get_outliers(self):
         
         import numpy as np

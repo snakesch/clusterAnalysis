@@ -53,6 +53,6 @@ if __name__ == "__main__":
 
     # Step 4: Signal classification and reporting
     singletons, duplets, real_clusters = utils.classify_signals(clusters, p_thresh)
-    utils.write_report(singletons, duplets, real_clusters, wkd, no_singleton=report_all)
+    utils.write_report(singletons, duplets, real_clusters, wkd, p_thresh, no_singleton=report_all)
     
     logger.info("Cluster analysis completed successfully!")

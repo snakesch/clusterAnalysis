@@ -71,7 +71,7 @@ def second_pass_singletons(snp_df, outdir, window=5000, p_thresh=1e-3):
         cluster_cand = variants.Cluster(var_lst)
         if cluster_cand.get_outliers() == 1:
             singletons += 1
-            logger.debug("Identified one cluster classified as singleton. ")
+#             logger.debug("Identified one cluster classified as singleton. ")
         else:
             clusters.append(cluster_cand)
             if cluster_cand.minp < p_thresh:
@@ -140,7 +140,7 @@ def third_pass_ld(ld_fp, all_snp_df, clusters, p_thresh):
                     contra_cnt += 1
             logger.debug(f"Number of variants with r2 > 0.8 and logP > 2: {var_cnt}")
             logger.debug(f"Contradictory evidence: {contra_cnt}")
-            if var_cnt <= 1 or contra_cnt > var_cnt:
+            if var_cnt <= 1 or contra_cnt / (contra_cnt + var_cnt) > 0.8:
                 clusters.remove(cluster)
                 contra_cluster_cnt += 1
                 break
@@ -171,7 +171,7 @@ def classify_signals(clusters, p_thresh):
 
     return singletons, duplets, real_clusters
 
-def write_report(singletons, duplets, real_clusters, path, no_singleton=True):
+def write_report(singletons, duplets, real_clusters, path, p_thresh, no_singleton=True):
 
     import os
     import pandas as pd
@@ -182,14 +182,14 @@ def write_report(singletons, duplets, real_clusters, path, no_singleton=True):
     report_out = []
     
     for cluster in real_clusters:
-        report_out.append([cluster.chrom, cluster.start, cluster.end, (cluster.minp, cluster.maxp), len(cluster.variants), "CLUSTER"])
+        report_out.append([cluster.chrom, cluster.start, cluster.end, (cluster.minp, cluster.maxp), len(cluster.get_significant_vars(p_thresh)), len(cluster.variants), "CLUSTER"])
     for duplet in duplets:
-        report_out.append([duplet.chrom, duplet.start, duplet.end, (duplet.minp, duplet.maxp), len(duplet.variants), "DUPLET"])
+        report_out.append([duplet.chrom, duplet.start, duplet.end, (duplet.minp, duplet.maxp), len(duplet.get_significant_vars(p_thresh)), len(duplet.variants), "DUPLET"])
     if not no_singleton:
         for singleton in singletons:
-            report_out.append([singleton.chrom, singleton.start, singleton.end, (singleton.minp, singleton.maxp), len(singleton.variants), "SINGLETON"])
+            report_out.append([singleton.chrom, singleton.start, singleton.end, (singleton.minp, singleton.maxp), len(singleton.get_significant_vars(p_thresh)), len(singleton.variants), "SINGLETON"])
     report = pd.DataFrame(report_out)
-    report.columns = ["chr", "start", "end", "p", "n_variant", "type"]
+    report.columns = ["chr", "start", "end", "p", "n_sig_variant", "n_variant", "type"]
     
     report.to_csv(os.path.join(path, "classification_report.tsv"), sep="\t", index=False)
     logger.info(f"Report written to {os.path.join(path, 'classification_report.tsv')}")
