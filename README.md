@@ -27,7 +27,7 @@ Warning: Users are advised not to change `--window` as it may alter the expected
 ClusterAnalyzer extracts clusters, duplets that may possibly be associated with the phenotype of interest. Singletons can be excluded from the report with `--no_singletons`. An example of output report is provided below.
 
 | chr  | start | end | p | n_sig_variant | n_variant | type |
-| ---- | ------------- | ------------- | ------------- | ---------- -| ------------- | ------------- |
+| ---- | ------------- | ------------- | ------------- | ----------- | ------------- | ------------- |
 | 1  | 163188121 | 163200062 | (0.000159, 0.03013) | 7 | 15 | CLUSTER |
 | 1  | 163241577 | 163284768 | (0.0001622, 0.03494) | 8 | 32 | CLUSTER |
 
