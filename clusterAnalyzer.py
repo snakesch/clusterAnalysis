@@ -2,20 +2,20 @@
 
 import argparse
 import os
-from datetime import datetime as dt
+import subprocess
 import logging
 import pandas as pd
-import variants
-import utils
-import subprocess
+
+from datetime import datetime as dt
+from variants import Variant, Cluster
+from utils import *
 
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--snp_df', required = True, help='summary statistics from PLINK (*.logistic)')
-    parser.add_argument('--p_thresh', required = True, type = float, help='p-value threshold for significance classification')
     parser.add_argument('--bfile', required = True, help='PLINK binary file prefix (with full path)')
-    parser.add_argument("--no_singletons", action = "store_true", help = "do not report singletons")
+    parser.add_argument('--p_thresh', default = 0.05, type = float, help='p-value threshold for SNP reporting')
     parser.add_argument('--window', default = 5000, help='window size for finding signal aggregates (default: 5000)')
     parser.add_argument("--verbose", default = "INFO", help = "level of verbosity (default: INFO)")
     args = parser.parse_args()
@@ -28,8 +28,10 @@ if __name__ == "__main__":
     assoc_fp = args.snp_df
     p_thresh = args.p_thresh
     bfile_prefix = args.bfile
-    window = args.window
-    report_all = args.no_singletons
+    
+    PROM_THRESH = 5
+    RESID_CUTOFF = 1.0
+    LD_CUTOFF = 0.4
     
     wkd = os.path.dirname(assoc_fp)
     ld_fp = os.path.join(wkd, "run_" + dt.today().strftime("%Y%m%d") + ".ld")
@@ -38,21 +40,27 @@ if __name__ == "__main__":
     assoc_df = pd.read_csv(assoc_fp, sep="\s+")
     if "P" not in assoc_df.columns:
         raise ValueError("P is not found in columns. Are you using PLINK output?")
-    
+
     # Step 1: First pass - Filter out SNP with p >= 0.05
-    assoc_sig = assoc_df[assoc_df["P"].lt(0.05)]
+    assoc_sig = assoc_df[assoc_df["P"].lt(0.05)].reset_index(drop=True)
     logger.info(f"Number of signals with p < 0.05 : {assoc_sig.shape[0]}")
 
-    # Step 2: Second pass - Filter out clusters with only one outlier & generate a SNP list of variants with p < p_thresh
-    clusters = utils.second_pass_singletons(assoc_sig, wkd, window=window, p_thresh=p_thresh)
-
-    # Step 3: Third pass - Use LD information to filter out signals with incompatible p-values
+    # Step 2: Extract signal clusters and significant SNPs from within
+    fout = open(os.path.join(wkd, "snps.id"), "w")
+    clusters = extract_analytic_clusters(assoc_sig, PROM_THRESH, fout, window=args.window)
+    logger.info(f"SNP ID list written to {os.path.join(wkd, 'snps.id')} ")
+    fout.close()
     subprocess.run(["plink", "--bfile", bfile_prefix, "--ld-snp-list", os.path.join(wkd, "snps.id"), "--ld-window", "99999", "--ld-window-kb", "100",
                    "--ld-window-r2", "0.0", "--out", ld_fp[:-3], "--r2"])
-    clusters = utils.third_pass_ld(ld_fp, assoc_df, clusters, p_thresh)
 
-    # Step 4: Signal classification and reporting
-    singletons, duplets, real_clusters = utils.classify_signals(clusters, p_thresh)
-    utils.write_report(singletons, duplets, real_clusters, wkd, p_thresh, no_singleton=report_all)
+    # Step 3: Compute LD r2 for reported SNPs
+    logger.info("Loading LD file ... ")
+    ld_df = pd.read_csv(ld_fp, sep="\s+")
+    logger.info("Loaded LD file.")
+    filtered_clusters = assess_correlation(clusters, assoc_df, ld_df, resid_cutoff = RESID_CUTOFF, prom_thresh = PROM_THRESH, ld_cutoff = LD_CUTOFF)
+
+    # Step 4: Reporting
+    write_ss(assoc_df, filtered_clusters, os.path.join(wkd, "filtered_clusters.assoc"), p_thresh = p_thresh)
+    write_summary(filtered_clusters, wkd, p_thresh = 0.05)
     
     logger.info("Cluster analysis completed successfully!")

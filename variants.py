@@ -54,13 +54,14 @@ class Cluster:
         for _var in var:
             if _var not in self.variants:
                 self.variants.extend([_var])
-        self.update_stat()
+        self.update_stat(update_coord=False)
 
-    def update_stat(self):
+    def update_stat(self, update_coord=True):
         self.maxp = max([var.p for var in self.variants])
         self.minp = min([var.p for var in self.variants])
-        self.start = min([var.bp for var in self.variants])
-        self.end = max([var.bp for var in self.variants])
+        if update_coord:
+            self.start = min([var.bp for var in self.variants])
+            self.end = max([var.bp for var in self.variants])
     
     def get_significant_vars(self, p_thresh):
         '''
@@ -84,10 +85,18 @@ class Cluster:
         import logging
         logger = logging.getLogger("root")
         
+        def _find_ld(ld_df, chrom, pos):
+            
+            import pandas as pd
+            
+            by_chrom = ld_df.iloc[ld_df["CHR_A"].searchsorted(chrom, side = "left"):ld_df["CHR_A"].searchsorted(chrom, side = "right"), :]
+            matches = by_chrom.iloc[by_chrom["BP_A"].searchsorted(pos, side = "left"):by_chrom["BP_A"].searchsorted(pos, side = "right"), :]
+            return matches
+        
         self.ld_ref = ld_ref
-        logger.debug(f"Setting LD refence at {self.ld_ref.snpid}")
-        ld_df = ld_df[(ld_df["CHR_A"] == self.chrom) & (ld_df["BP_A"] == self.ld_ref.bp)]
-        r2_dict = {k: v for k, v in zip(ld_df["BP_B"], ld_df["R2"])}
+        logger.debug(f"Setting LD reference at {self.ld_ref.snpid}")
+        matched_ld = _find_ld(ld_df, ld_ref.chrom, ld_ref.bp)
+        r2_dict = {k: v for k, v in zip(matched_ld["BP_B"], matched_ld["R2"])}
         for other_var in self.variants:
             other_var.r2 = r2_dict.get(other_var.bp, -1)
 
