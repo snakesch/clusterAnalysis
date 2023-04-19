@@ -50,8 +50,8 @@ if __name__ == "__main__":
     clusters = extract_analytic_clusters(assoc_sig, PROM_THRESH, fout, window=args.window)
     logger.info(f"SNP ID list written to {os.path.join(wkd, 'snps.id')} ")
     fout.close()
-    subprocess.run(["plink", "--bfile", bfile_prefix, "--ld-snp-list", os.path.join(wkd, "snps.id"), "--ld-window", "99999", "--ld-window-kb", "100",
-                   "--ld-window-r2", "0.0", "--out", ld_fp[:-3], "--r2"])
+#     subprocess.run(["plink", "--bfile", bfile_prefix, "--ld-snp-list", os.path.join(wkd, "snps.id"), "--ld-window", "99999", "--ld-window-kb", "100",
+#                    "--ld-window-r2", "0.0", "--out", ld_fp[:-3], "--r2"])
 
     # Step 3: Compute LD r2 for reported SNPs
     logger.info("Loading LD file ... ")
