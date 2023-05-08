@@ -95,7 +95,7 @@ def extract_analytic_clusters(assoc_sig, prom_thresh, fout, window=5000):
 
     return clusters
 
-def assess_correlation(clusters, assoc_df, ld_df, resid_cutoff=0.5, prom_thresh=5, ld_cutoff=0.4):
+def assess_correlation(clusters, assoc_df, ld_df, resid_cutoff=0.5, prom_thresh=5, ld_cutoff=0.4, plot=False):
 
     '''
     Inputs a complete of candidate clusters, a df of all SNPs, coef_cutoff: cutoff of
@@ -112,61 +112,11 @@ def assess_correlation(clusters, assoc_df, ld_df, resid_cutoff=0.5, prom_thresh=
     import copy
     import numpy as np
     from variants import Variant, Cluster
-    import logging
-
-    def get_residuals(points, min_size = 3):
-
-        '''
-        This function takes a numpy array of points (r2, logP) and computes the mean residuals
-        based on a linear model of y_hat = y_ref * r2, where y_ref is the logP value of LD re-
-        ference point.
-
-        Return:
-        --------
-        float: a non-negative mean residual estimate
-
-        '''
-        import numpy as np
-
-        to_fit = points[points[:, 0] > 0.4]
-        refp = points[points[:, 0] == 1.0, 1][0]
-
-        # Too few signals to fit a linear model
-        if to_fit.shape[0] < min_size:
-            return 999
-
-        X = to_fit[:, 0].reshape(-1, 1)
-        y_true = to_fit[:, 1]
-
-        y_pred = refp * X
-        resid = np.mean(np.absolute(y_true - y_pred))
-
-        return resid
-
-    logger = logging.getLogger("root")
-
-def assess_correlation(clusters, assoc_df, ld_df, resid_cutoff=0.5, prom_thresh=5, ld_cutoff=0.4, plot=False):
-    
-    '''
-    Inputs a complete of candidate clusters, a df of all SNPs, coef_cutoff: cutoff of 
-    correlation coef (R2; default = 0.5), prom_thresh: number of similarly significant
-    SNPs required. ld_cutoff: LD r2 cutoff above which degree of fitness to y = ymax * x
-    is assessed.
-    
-    Returns:
-    --------
-    filtered_clusters
-    
-    '''
-    
-    import copy
-    import numpy as np
-    from variants import Variant, Cluster
     from utils import plot_cluster
     import logging
-    
+
     def correlation_score(points, min_size = 3):
-    
+
         '''
         This function takes a numpy array (r2, logP) and computes correlation coef.
 
@@ -179,7 +129,7 @@ def assess_correlation(clusters, assoc_df, ld_df, resid_cutoff=0.5, prom_thresh=
 
         to_fit = points[points[:, 0] > 0.4]
         refp = points[points[:, 0] == 1.0, 1][0]
-        
+
         # Too few signals to fit a linear model
         if to_fit.shape[0] < min_size:
             return 999
@@ -191,12 +141,12 @@ def assess_correlation(clusters, assoc_df, ld_df, resid_cutoff=0.5, prom_thresh=
         resid = np.mean(np.absolute(y_true - y_pred))
 
         return resid
-    
+
     logger = logging.getLogger("root")
 
     filtered_clusters = []
     for cluster in clusters:
-        
+
         cluster.variants = sorted(cluster.variants, key = lambda x: x.logP, reverse=True)
         new_cluster = copy.deepcopy(cluster)
 
@@ -207,19 +157,19 @@ def assess_correlation(clusters, assoc_df, ld_df, resid_cutoff=0.5, prom_thresh=
                 new_cluster.add_variant(Variant(_var.BP, _var.P, _var.CHR, _var.SNP))
         new_cluster.add_r2_info(ld_df, cluster.variants[0])
         points = np.array([ (_var.r2, _var.logP, _var.bp) for _var in new_cluster.variants ])
-        
-        
+
+
         # Keep track of processed SNPs (Exclude tightly linked SNPs)
         linked_var = np.empty(1)
         while len(new_cluster.variants) > prom_thresh:
-            
+
             # Initialize the points
             for var in new_cluster.variants:
                 if var.logP == points[points[:, 1].argsort()[::-1]][0, 1]:
                     break
             new_cluster.add_r2_info(ld_df, var)
             points = np.array([ (_var.r2, _var.logP, _var.bp) for _var in new_cluster.variants ])
-            
+
             # Compute MAR
             linked_var = np.append(linked_var, points[points[:, 0] > 0.8, 2])
             resid = correlation_score(points, min_size = prom_thresh)
@@ -227,13 +177,13 @@ def assess_correlation(clusters, assoc_df, ld_df, resid_cutoff=0.5, prom_thresh=
                 filtered_clusters.append(copy.deepcopy(new_cluster))
 
             _linked = list(map(int, linked_var))
-            new_cluster.variants = sorted([var for var in new_cluster.variants if var.bp not in _linked], 
+            new_cluster.variants = sorted([var for var in new_cluster.variants if var.bp not in _linked],
                                           key = lambda var: var.logP, reverse = True)
             points = points[points[:, 0] <= 0.8, :]
             new_cluster.clear_r2()
             if points.shape[0] < prom_thresh:
                 break
-    
+
     # Output the number of unique clusters
     regions = [ str(_cluster.chrom) + ":" + str(_cluster.start) for _cluster in filtered_clusters]
     logger.info(f"A total of {len(set(regions))} clusters passed all filters. ")
