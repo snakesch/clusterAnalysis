@@ -180,7 +180,8 @@ if __name__ == "__main__":
     parser.add_argument('--bfile', required = False, help='PLINK binary file prefix (with full path)')
     parser.add_argument('--ld', required = False, help='pre-computed PLINK LD file')
     parser.add_argument('--p_thresh', default = 0.05, type = float, help='p-value threshold for SNP reporting')
-    parser.add_argument('--window', default = 5000, help='window size for finding signal aggregates (default: 5000)')
+    # parser.add_argument('--window', default = 5000, help='window size for finding signal aggregates (default: 5000)')
+    parser.add_argument('--window', default = 5000, help=argparse.SUPPRESS)
     parser.add_argument('--outdir', required = False, help='output directory (default: directory of summary statistics')
     parser.add_argument("--verbose", default = "INFO", help = "level of verbosity (default: INFO)")
     args = parser.parse_args()
@@ -217,12 +218,10 @@ if __name__ == "__main__":
     fout.close()
 
     # Step 3: Third pass - Extract SNP clusters with consistent LD
-    if not args.ld:
-        if not args.bfile:
-            raise FileNotFoundError("No LD data provided. Stop. ")
-        else:
-            subprocess.run(["plink", "--bfile", bfile_prefix, "--ld-snp-list", os.path.join(wkd, "snps.id"), "--ld-window", "99999", "--ld-window-kb", "100",
-                           "--ld-window-r2", "0.0", "--out", ld_fp[:-3], "--r2"])
+    if not args.ld and not args.bfile:
+        raise FileNotFoundError("No LD data provided. Stop. ")
+    elif not args.ld and args.bfile:
+        subprocess.run(["plink", "--bfile", bfile_prefix, "--ld-snp-list", os.path.join(wkd, "snps.id"), "--ld-window", "99999", "--ld-window-kb", "100", "--ld-window-r2", "0.0", "--out", ld_fp[:-3], "--r2"])
 
     logger.info("Loading LD file ... ")
     ld_df = pd.read_csv(ld_fp, sep="\s+")
