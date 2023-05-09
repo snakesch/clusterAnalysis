@@ -20,7 +20,6 @@ optional arguments:
   --outdir OUTDIR      output directory (default: directory of summary statistics
   --verbose VERBOSE    level of verbosity (default: INFO)
 ```
-Warning: Users are advised not to change `--window` as it may alter the expected behavior of ClusterAnalyzer.
 
 ## Result
 ClusterAnalyzer reports extracted clusters in two files: `filtered_clusters.assoc` and `cluster_summary.tsv`. `filtered_clusters.assoc` includes summary statistics of variants found within reported genomic clusters in PLINK format; `cluster_summary.tsv` includes various metrics of reported clusters which are explained further below.
