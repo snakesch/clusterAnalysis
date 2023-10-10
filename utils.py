@@ -1,85 +1,83 @@
 #!/usr/bin/env python3
 
-def efficient_query(assoc_df, chrom, start, end):
+## utils.py
+## This script contains utility functions of ClusterAnalyzer.
 
-    import pandas as pd
+import pandas as pd
+import os
+import logging
 
-    search_start = assoc_df["CHR"].searchsorted(int(chrom))
-    search_end = assoc_df["CHR"].searchsorted(int(chrom) + 1)
+logger = logging.getLogger("root")
 
-    by_chrom = assoc_df.iloc[search_start: search_end, :]
-    pos_start = by_chrom.BP.searchsorted(start) + by_chrom.index[0]
-    pos_end = by_chrom.BP.searchsorted(end) + by_chrom.index[0]
+def get_ld(outd, snps, bfile):
+    '''Writes LD information of SNPs to outd using genotypes stored in plink bfile'''
+    import subprocess
+    logger = logging.getLogger("root")
+    
+    if os.path.exists(ld_path := os.path.join(outd, os.path.basename(bfile).split('.')[0]) + ".ld"):
+        logger.warning(f"Using previous LD results - {ld_path}")
+        return pd.read_csv(ld_path, sep="\s+")
+    
+    # Write SNP list
+    snp_list_path = os.path.join(outd, "snps.id")
+    with open(snp_list_path, "w") as f:
+        for snp in snps:
+            f.write(snp)
+            f.write("\n")
+            
+    subprocess.run(f"plink --bfile {bfile} --ld-snp-list {snp_list_path} --ld-window 10 --ld-window-r2 0.0 --r2 --out {os.path.join(outd, os.path.basename(bfile).split('.')[0])} 2>/dev/null", shell=True)
+    
+    ld_path = os.path.join(outd, os.path.basename(bfile).split('.')[0]) + ".ld"
+    
+    ld_data = pd.read_csv(ld_path, sep="\s+")
+    logger.info(f"Loaded LD from {ld_path}")
+    
+    return ld_data
 
-    return assoc_df.iloc[pos_start:pos_end+1, :]
+def reporting(outd, assoc_df):
+    '''Creates summaries of prioritized clusters and variants based on association signals in assoc_df'''
+    
+    logger.info("Writing summary ... ")
+    
+    # Cluster reporting
+    outp = os.path.join(outd, "merged_clusters.bed")
+    cluster_df = pd.read_csv(outp, sep="\t", header=None)
+    new_df = []
+    var_cnt = 0
+    variant_summary = open(os.path.join(outd, "variant_summary.assoc"), "w")
+    headers = ["Chr", "Start", "End", "SignalCount", "Pmin", "Pmax"]
+    for h in headers:
+        variant_summary.write(h)
+        variant_summary.write("\t")
+    variant_summary.write("\n")
+    for _, region in cluster_df.iterrows():
+        chrom, start, end = region
+        assoc_by_chrom = assoc_df[assoc_df["CHR"] == chrom]
+        assoc_target = assoc_by_chrom[assoc_by_chrom["BP"].between(start, end)]
+        var_cnt += assoc_target.shape[0]
+        assoc_target.to_csv(os.path.join(outd, "variant_summary.assoc"), sep="\t", index=False, header=False, mode="a")
+        region["SignalCount"] = "{}/{}".format(assoc_target[assoc_target["OR"] > 1].shape[0], assoc_target[assoc_target["OR"] < 1].shape[0])
+        region["Pmin"] = "{}/{}".format(assoc_target[assoc_target["OR"] > 1]["P"].min(), assoc_target[assoc_target["OR"] < 1]["P"].min())
+        region["Pmax"] = "{}/{}".format(assoc_target[assoc_target["OR"] > 1]["P"].max(), assoc_target[assoc_target["OR"] < 1]["P"].max())
+        new_df.append(region)
 
-def plot_cluster(cluster, ld_cutoff=0.4):
-
-    from matplotlib import pyplot as plt
-    import numpy as np
-
-    color_dict = {1.: "tab:purple"}
-
-    points = np.array([ (_var.r2, _var.logP) for _var in cluster.variants ])
-
-    fig, ax = plt.subplots()
-    for x, y in zip(points[:, 0], points[:, 1]):
-        ax.scatter(x, y, color = color_dict.get(x, "tab:blue"))
-    ax.set_xlabel("LD $r^2$")
-    ax.set_ylabel("$-logP$")
-    ax.set_title(f"""Cluster {cluster.chrom}:{cluster.start}-{cluster.end}"""
-                 f""" (LD ref: {cluster.ld_ref.chrom}:{cluster.ld_ref.bp})""")
-    ax.axvline(x=ld_cutoff, c="0.4", linestyle = "--")
-    refp = points[points[:, 0] == 1.0, 1][0]
-    ax.plot(points[:, 0], points[:, 0] * refp, color = "tab:red")
-    ax.set_xlim(left=-0.05, right=1.05)
-    ax.set_ylim(bottom=-0.2, top=max(points[:, 1])+0.2)
-    plt.show()
-
+    reportCluster = pd.DataFrame(new_df)
+    logger.info(f"Number of prioritized clusters: {reportCluster.shape[0]}")
+    logger.info(f"Number of variants in clusters: {var_cnt}")
+    reportCluster.columns = headers
+    reportCluster.to_csv(os.path.join(outd, "cluster_summary.tsv"), sep="\t", header=True, index=False)
+                
     return
-
-def write_ss(assoc_df, clusters: list, outfp, p_thresh = 1.0):
-
-    import pandas as pd
-    import logging
-
-    logger = logging.getLogger("root")
-
-    clusters_coord = set()
-    for cluster in clusters:
-        clusters_coord.add((cluster.chrom, cluster.start, cluster.end))
-
-    out_dfs = []
-    for cluster in clusters_coord:
-        out_dfs.append(efficient_query(assoc_df, cluster[0], cluster[1], cluster[2]))
-    out_df = pd.concat(out_dfs, axis = 0)
-    out_df = out_df[out_df["P"].le(p_thresh)]
-    out_df = out_df.sort_values(by=["CHR", "BP"])
-    out_df.to_csv(outfp, sep="\t", index = False)
-    logger.info(f"Summary statistics written to {outfp} .")
-
-    return out_df
-
-def write_summary(clusters, path, p_thresh = 0.05):
-
-    import os
-    import pandas as pd
-    import logging
-
-    logger = logging.getLogger("root")
-
-    report_out = []
-
-    for cluster in clusters:
-        sig_var = len(cluster.get_significant_vars(p_thresh))
-        tol_var = len(cluster.variants)
-        report_out.append([cluster.chrom, cluster.start, cluster.end, (cluster.minp, cluster.maxp), sig_var, sig_var/tol_var])
-
-    report = pd.DataFrame(report_out)
-    report.columns = ["chr", "start", "end", "p", "n_signal", "frac_significant"]
-    report = report.drop_duplicates(subset = ["chr", "start", "end"], keep = "first")
-
-    report.to_csv(os.path.join(path, "cluster_summary.tsv"), sep="\t", index=False)
-    logger.info(f"Cluster summary written to {os.path.join(path, 'cluster_summary.tsv')}")
-
+                
+def cleanup(outd, bfile):
+    '''Cleans up intermediate files in outd'''
+    
+    snp_list = os.path.join(outd, "snps.id")    
+    ld_path = os.path.join(outd, os.path.basename(bfile) + ".ld")
+    merged_bed = os.path.join(outd, "merged_clusters.bed")
+                
+    for file in [snp_list, ld_path, merged_bed]:
+        if os.path.exists(file):
+            os.remove(file)
+                
     return
