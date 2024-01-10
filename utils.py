@@ -45,7 +45,7 @@ def reporting(outd, assoc_df):
     new_df = []
     var_cnt = 0
     variant_summary = open(os.path.join(outd, "variant_summary.assoc"), "w")
-    headers = ["Chr", "Start", "End", "SignalCount", "Pmin", "Pmax"]
+    headers = assoc_df.columns.tolist()
     for h in headers:
         variant_summary.write(h)
         variant_summary.write("\t")
