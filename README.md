@@ -8,13 +8,14 @@ ClusterAnalyzer is a clustering algorithm for prioritizing likely true signals f
 
 ## Usage
 ```{bash}
-usage: clusterAnalyzer.py [-h] --assoc ASSOC [--bfile BFILE] [--min_rows MIN_ROWS] [--mae MAE] [--outdir OUTDIR]
+usage: clusterAnalyzer.py [-h] --assoc ASSOC [--bfile BFILE] [--ld LDFILE] [--min_rows MIN_ROWS] [--mae MAE] [--outdir OUTDIR]
                           [--verbose VERBOSE]
 
 options:
   -h, --help           show this help message and exit
   --assoc ASSOC        summary statistics from PLINK (*.logistic)
   --bfile BFILE        PLINK binary file prefix
+  --ld FILE            LD statistics file
   --min_rows MIN_ROWS  Minimum SNP# requirement for a signal to be assessed
   --mae MAE            Mean absolute error threshold for determining LD-p value consistency
   --outdir OUTDIR      output directory (default: directory of summary statistics
