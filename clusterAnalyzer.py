@@ -14,6 +14,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--assoc', required = True, help='summary statistics from PLINK (*.logistic)')
     parser.add_argument('--bfile', required = False, help='PLINK binary file prefix')
+    parser.add_argument('--ld', required = False, help='PLINK LD statistics')
     parser.add_argument('--min_rows', default = 10, help = 'Minimum SNP# requirement for a signal to be assessed')
     parser.add_argument('--mae', default = 1.0, help = 'Mean absolute error threshold for determining LD-p value consistency')
     parser.add_argument('--outdir', required = False, help='output directory (default: directory of summary statistics')
@@ -42,7 +43,12 @@ if __name__ == "__main__":
         snps.extend([snp for cluster in filtered_dataframes for snp in cluster["SNP"]])
 
     # LD annotation
-    ld_data = get_ld(outd, snps, args.bfile)
+    if args.bfile:
+        ld_data = get_ld(outd, snps, args.bfile)
+    elif args.ld:
+        ld_data = pd.read_csv(args.ld, sep="\t")
+    else:
+        logger.error("No binary file / LD statistics provided. ")
     ld_selected_clusters = filter_clusters(clusters, ld_data, assoc_df, outd, args.mae)
 
     # Reporting
